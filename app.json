@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Whisper",
+    "name": "whisper",
     "slug": "whisper",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,6 +16,11 @@
     },
     "android": {
       "package": "com.anonymous.whisper"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5cd1b230-aac1-4f40-bdc5-cd299158b8dd"
+      }
     }
   }
 }

@@ -1,2 +1,2 @@
-# Whisper-
+# Whisper
 Social app

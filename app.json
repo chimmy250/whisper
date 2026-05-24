@@ -8,6 +8,7 @@
       "supportsTabletMode": true
     },
     "android": {
+      "package": "com.whisper.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
@@ -15,12 +16,6 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "5cd1b230-aac1-4f40-bdc5-cd2999158b8d"
-      }
     }
   }
 }
-

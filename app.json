@@ -10,7 +10,7 @@
     "android": {
       "package": "com.whisper.app",
       "adaptiveIcon": {
-        "foregroundImage": ".adaptive-icon.png",
+        "foregroundImage": "./adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       }
     },

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Whisper",
-    "slug": "whisper-app",
+    "slug": "whisper-",
     "version": "1.0.0",
     "assetBundlePatterns": ["**/*"],
     "ios": {

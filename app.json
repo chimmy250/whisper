@@ -10,12 +10,12 @@
     "android": {
       "package": "com.whisper.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": ".adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./icon.png"
     },
     "extra": {
       "eas": {

@@ -16,13 +16,17 @@ const S={
   SPLASH:"splash",ONBOARD:"onboard",LOGIN:"login",REGISTER:"register",
   PROFILE_SETUP:"profile_setup",
   HOME:"home",STATUS:"status",NOTIFS:"notifs",SEARCH:"search",USER_VIEW:"user_view",
-  MESSAGES:"messages",CHAT:"chat",
-  ROOMS:"rooms",ROOM_CHAT:"room_chat",CREATE_ROOM:"create_room",
-  WALLET:"wallet",BUY_COINS:"buy_coins",SEND_COINS:"send_coins",
-  BADGE_APPLY:"badge_apply",UPGRADE:"upgrade",
-  PROFILE:"profile",SETTINGS:"settings",REPORT:"report",
+  NEARBY_MAP:"nearby_map",DISCOVER:"discover",
+  MESSAGES:"messages",CHAT:"chat",VOICE_CALL:"voice_call",VIDEO_CALL:"video_call",
+  ROOMS:"rooms",ROOM_CHAT:"room_chat",CREATE_ROOM:"create_room",PRIVATE_ROOMS:"private_rooms",
+  WALLET:"wallet",BUY_COINS:"buy_coins",SEND_COINS:"send_coins",WITHDRAW:"withdraw",
+  BADGE_APPLY:"badge_apply",UPGRADE:"upgrade",GIFT_HISTORY:"gift_history",COIN_HISTORY:"coin_history",
+  PROFILE:"profile",EDIT_PROFILE:"edit_profile",SETTINGS:"settings",REPORT:"report",
+  SECURITY:"security",PRIVACY:"privacy",BLOCKED:"blocked",CONNECTIONS:"connections",
+  ALBUM_VIEW:"album_view",HELP_CENTER:"help_center",CHANGE_PASSWORD:"change_password",
   ADMIN:"admin",ADMIN_USERS:"admin_users",ADMIN_ROOMS:"admin_rooms",
   ADMIN_COINS:"admin_coins",ADMIN_BADGES:"admin_badges",ADMIN_ANALYTICS:"admin_analytics",
+  ADMIN_REPORTS:"admin_reports",
 };
 
 // ─── DATA ────────────────────────────────────────────────────────────
@@ -515,7 +519,7 @@ function HomeScreen({push,onNav}){
           <div style={{width:44,height:44,borderRadius:14,background:`${O}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🔔</div>
           <div style={{flex:1}}>
             <div style={{fontWeight:700,fontSize:14,color:W,marginBottom:2}}>Whisper nearby! 📡</div>
-            <div style={{fontSize:12,color:G}}>{alertUser.name} is {alertUser.dist} from you</div>
+            <div style={{fontSize:12,color:G}}>{alertUser&&alertUser.name||"Someone"} is {alertUser&&alertUser.dist||"nearby"} from you</div>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>{push(S.USER_VIEW,alertUser);setAlert(false);}} style={{background:O,border:"none",borderRadius:8,padding:"7px 11px",color:W,fontSize:12,fontWeight:700,cursor:"pointer"}}>View</button>
@@ -624,7 +628,7 @@ function HomeScreen({push,onNav}){
 }
 
 // ─── STATUS / STORIES ────────────────────────────────────────────────
-function StatusScreen({onBack,initData}){
+function StatusScreen({onBack,push,initData}){
   const [view,setView]=useState(initData?"story":"list");
   const [storyUser,setStoryUser]=useState(initData||MOCK_STATUSES[0]);
   const [storyIdx,setStoryIdx]=useState(0);
@@ -865,39 +869,114 @@ function SearchScreen({onBack,push}){
 
 // ─── USER PROFILE VIEW ───────────────────────────────────────────────
 function UserViewScreen({user,onBack,push}){
-  const u=user||NEARBY[0];
+  const u=(user&&user.name)?user:NEARBY[0];
   const [tab,setTab]=useState("about");
+  const [showLoc,setShowLoc]=useState(false);
+  const [showDirOpts,setShowDirOpts]=useState(false);
+
+  const coordsMap={
+    1:{lat:6.4561,lng:3.3912,address:"Admiralty Way, Lekki Phase 1"},
+    2:{lat:6.4698,lng:3.3872,address:"Ozumba Mbadiwe Ave, Victoria Island"},
+    3:{lat:6.4423,lng:3.4012,address:"Ajose Adeogun St, Victoria Island"},
+    4:{lat:6.4812,lng:3.3654,address:"Adeola Odeku St, Victoria Island"},
+    5:{lat:6.4234,lng:3.4123,address:"Igbo Efon, Lekki"},
+    6:{lat:6.4334,lng:3.3789,address:"Jakande Estate, Lekki"},
+  };
+  const coords=coordsMap[u.id]||{lat:6.4550,lng:3.3841,address:"Lagos, Nigeria"};
+
+  const openMaps=(app)=>{
+    const dest=coords.lat+","+coords.lng;
+    const urls={
+      google:"https://www.google.com/maps/dir/?api=1&destination="+dest+"&travelmode=walking",
+      apple:"https://maps.apple.com/?daddr="+dest+"&dirflg=w",
+    };
+    if(typeof window!=="undefined") window.open(urls[app]||urls.google,"_blank");
+  };
+
   return(
     <div style={{flex:1,background:D,display:"flex",flexDirection:"column",overflowY:"auto"}}>
-      <div style={{background:`linear-gradient(180deg,${tc(u.tier)}25 0%,transparent 100%)`,padding:"14px 18px 0",flexShrink:0}}>
-        <button onClick={onBack} style={{background:"none",border:"none",color:O,fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:14,padding:0}}>← Back</button>
+      <div style={{background:"linear-gradient(180deg,"+tc(u.tier)+"25 0%,transparent 100%)",padding:"14px 18px 0",flexShrink:0}}>
+        <button onClick={onBack} style={{background:"none",border:"none",color:O,fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:14,padding:0}}>{"<- Back"}</button>
         <div style={{display:"flex",gap:15,alignItems:"flex-start",marginBottom:16}}>
           <Avatar av={u.av} tier={u.tier} size={82} online={u.online}/>
           <div style={{flex:1}}>
             <div style={{fontFamily:"'DM Serif Display',serif",fontSize:24,color:W,marginBottom:4}}>{u.name}</div>
             <TBadge tier={u.tier}/>
             <div style={{fontSize:13,color:G,marginTop:5}}>{u.occ} · Age {u.age}</div>
-            <div style={{fontSize:12,marginTop:3,color:u.mode==="visible"?O:G,fontWeight:600}}>
-              {u.mode==="visible"?`📡 ${u.dist} away`:`🟡 Online (Partial)`}
+            <div onClick={()=>{setShowLoc(!showLoc);setShowDirOpts(false);}} style={{display:"flex",alignItems:"center",gap:6,marginTop:8,cursor:"pointer",background:showLoc?O+"18":D3,borderRadius:8,padding:"6px 10px",border:"1px solid "+(showLoc?O+"55":D5),width:"fit-content",transition:"all 0.2s"}}>
+              <span style={{fontSize:14}}>{"📍"}</span>
+              <span style={{fontSize:12,color:u.mode==="visible"?O:G,fontWeight:600}}>{u.mode==="visible"?u.dist+" away":"Location hidden"}</span>
+              <span style={{fontSize:10,color:G}}>{showLoc?"▲":"▼"}</span>
             </div>
           </div>
         </div>
-        <div style={{display:"flex",gap:9,marginBottom:18,flexWrap:"wrap"}}>
-          <button onClick={()=>push(S.CHAT,CONVOS.find(c=>c.name===u.name)||CONVOS[0])} style={{flex:1,background:O,border:"none",borderRadius:12,padding:"12px 0",color:W,fontWeight:700,fontSize:13,cursor:"pointer",boxShadow:`0 0 16px ${O}44`}}>💬 Message</button>
-          <button onClick={()=>push(S.SEND_COINS,u)} style={{flex:1,background:D3,border:`1px solid ${D5}`,borderRadius:12,padding:"12px 0",color:W,fontWeight:700,fontSize:13,cursor:"pointer"}}>🪙 Send Coins</button>
-          <button onClick={()=>push(S.REPORT,u)} style={{background:`${RED}15`,border:`1px solid ${RED}33`,borderRadius:12,padding:"12px 14px",color:RED,fontWeight:700,fontSize:13,cursor:"pointer"}}>⚠️</button>
+
+        {showLoc&&(u.mode==="visible"?(
+          <div style={{background:D3,borderRadius:14,padding:"14px",marginBottom:14,border:"1px solid "+O+"33"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+              <div style={{width:40,height:40,borderRadius:12,background:O+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{"📍"}</div>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:W,marginBottom:2}}>{u.dist} from your location</div>
+                <div style={{fontSize:11,color:G}}>{coords.address}</div>
+              </div>
+            </div>
+            <div style={{background:"#0C180C",borderRadius:12,height:110,marginBottom:12,position:"relative",overflow:"hidden",border:"1px solid #1A2A1A"}}>
+              {[20,40,60,80].map(v=><div key={"h"+v} style={{position:"absolute",left:0,right:0,top:v+"%",height:1,background:"rgba(255,255,255,0.04)"}}/>)}
+              {[20,40,60,80].map(v=><div key={"v"+v} style={{position:"absolute",top:0,bottom:0,left:v+"%",width:1,background:"rgba(255,255,255,0.04)"}}/>)}
+              <div style={{position:"absolute",left:"32%",top:"58%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
+                <div style={{width:13,height:13,borderRadius:7,background:GRN,boxShadow:"0 0 10px "+GRN,border:"2.5px solid white",margin:"0 auto"}}/>
+                <div style={{fontSize:8,color:GRN,marginTop:2,whiteSpace:"nowrap"}}>You</div>
+              </div>
+              <div style={{position:"absolute",left:"65%",top:"38%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
+                <div style={{width:13,height:13,borderRadius:7,background:O,boxShadow:"0 0 10px "+O,border:"2.5px solid white",margin:"0 auto"}}/>
+                <div style={{fontSize:8,color:O,marginTop:2,whiteSpace:"nowrap"}}>{u.name.split(" ")[0]}</div>
+              </div>
+              <svg style={{position:"absolute",inset:0,width:"100%",height:"100%"}}>
+                <line x1="32%" y1="58%" x2="65%" y2="38%" stroke={O} strokeWidth="1.5" strokeDasharray="5,3" opacity="0.5"/>
+              </svg>
+              <div style={{position:"absolute",bottom:5,right:8,fontSize:9,color:GD}}>Approximate location</div>
+            </div>
+            {!showDirOpts?(
+              <button onClick={()=>setShowDirOpts(true)} style={{width:"100%",background:"linear-gradient(135deg,"+O+","+OD+")",border:"none",borderRadius:11,padding:"13px",color:W,fontWeight:700,fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxShadow:"0 0 20px "+O+"44"}}>
+                {"🗺️ Get Directions"}
+              </button>
+            ):(
+              <div style={{background:D4,borderRadius:12,padding:"14px",border:"1px solid "+O+"33"}}>
+                <div style={{fontSize:12,fontWeight:600,color:W,marginBottom:12,textAlign:"center"}}>Open directions in:</div>
+                <div style={{display:"flex",gap:9}}>
+                  <button onClick={()=>openMaps("google")} style={{flex:1,background:O+"22",border:"1px solid "+O+"44",borderRadius:10,padding:"12px 0",color:O,fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                    <span style={{fontSize:22}}>{"🗺️"}</span><span>Google Maps</span>
+                  </button>
+                  <button onClick={()=>openMaps("apple")} style={{flex:1,background:D3,border:"1px solid "+D5,borderRadius:10,padding:"12px 0",color:GL,fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                    <span style={{fontSize:22}}>{"🧭"}</span><span>Apple Maps</span>
+                  </button>
+                  <button onClick={()=>setShowDirOpts(false)} style={{background:D3,border:"1px solid "+D5,borderRadius:10,padding:"12px 14px",color:G,fontSize:20,cursor:"pointer",lineHeight:1}}>{"✕"}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ):(
+          <div style={{background:YEL+"12",border:"1px solid "+YEL+"33",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+            <div style={{fontSize:12,color:YEL,lineHeight:1.55}}>{"🔒"} This user is in Partial Visible mode — location is private.</div>
+          </div>
+        ))}
+
+        <div style={{display:"flex",gap:9,marginBottom:18}}>
+          <button onClick={()=>push(S.CHAT,CONVOS.find(c=>c.name===u.name)||CONVOS[0])} style={{flex:1,background:O,border:"none",borderRadius:12,padding:"12px 0",color:W,fontWeight:700,fontSize:13,cursor:"pointer",boxShadow:"0 0 16px "+O+"44"}}>{"💬"} Message</button>
+          <button onClick={()=>push(S.SEND_COINS,u)} style={{flex:1,background:D3,border:"1px solid "+D5,borderRadius:12,padding:"12px 0",color:W,fontWeight:700,fontSize:13,cursor:"pointer"}}>{"🪙"} Send Coins</button>
+          <button onClick={()=>push(S.REPORT,u)} style={{background:RED+"15",border:"1px solid "+RED+"33",borderRadius:12,padding:"12px 14px",color:RED,fontWeight:700,fontSize:13,cursor:"pointer"}}>{"⚠️"}</button>
         </div>
-        <div style={{display:"flex",gap:0,marginBottom:0,borderBottom:`1px solid ${D4}`}}>
+        <div style={{display:"flex",borderBottom:"1px solid "+D4}}>
           {["about","interests","album"].map(t=>(
-            <button key={t} onClick={()=>setTab(t)} style={{flex:1,background:"none",border:"none",padding:"10px 0",color:tab===t?O:G,fontWeight:700,fontSize:13,cursor:"pointer",borderBottom:`2px solid ${tab===t?O:"transparent"}`,textTransform:"capitalize",transition:"all 0.2s"}}>{t}</button>
+            <button key={t} onClick={()=>setTab(t)} style={{flex:1,background:"none",border:"none",padding:"10px 0",color:tab===t?O:G,fontWeight:700,fontSize:13,cursor:"pointer",borderBottom:"2px solid "+(tab===t?O:"transparent"),textTransform:"capitalize"}}>{t}</button>
           ))}
         </div>
       </div>
       <div style={{padding:"16px 18px 28px"}}>
         {tab==="about"&&(
-          <div style={{background:D3,borderRadius:14,padding:"16px",border:`1px solid ${D4}`}}>
-            {[["Tender",u.tender],["Occupation",u.occ],["Age",u.age],["Visibility",u.mode==="visible"?"Visible":"Partial"],["Status",u.online?"Online":"Offline"]].map(([k,v])=>(
-              <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${D4}`}}>
+          <div style={{background:D3,borderRadius:14,padding:"16px",border:"1px solid "+D4}}>
+            {[["Tender",u.tender],["Occupation",u.occ],["Age",String(u.age)],["Visibility",u.mode==="visible"?"Visible":"Partial"],["Status",u.online?"Online":"Offline"]].map(([k,v])=>(
+              <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid "+D4}}>
                 <span style={{fontSize:13,color:G}}>{k}</span>
                 <span style={{fontSize:13,color:W,fontWeight:600}}>{v}</span>
               </div>
@@ -907,56 +986,15 @@ function UserViewScreen({user,onBack,push}){
         {tab==="interests"&&(
           <div style={{display:"flex",flexWrap:"wrap",gap:9}}>
             {u.interests.map(i=>(
-              <span key={i} style={{background:D3,border:`1px solid ${D5}`,borderRadius:20,padding:"8px 16px",fontSize:13,color:GL}}>{i}</span>
+              <span key={i} style={{background:D3,border:"1px solid "+D5,borderRadius:20,padding:"8px 16px",fontSize:13,color:GL}}>{i}</span>
             ))}
           </div>
         )}
         {tab==="album"&&(
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:4}}>
             {["🌆","🎨","☕","🌊","🎵","📸","🌅","🎭","🍕"].map((e,i)=>(
-              <div key={i} style={{aspectRatio:"1",background:D3,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,border:`1px solid ${D4}`}}>{e}</div>
+              <div key={i} style={{aspectRatio:"1",background:D3,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,border:"1px solid "+D4}}>{e}</div>
             ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
-function MessagesScreen({push}){
-  const [q,setQ]=useState("");
-  const filtered=CONVOS.filter(c=>q===""||c.name.toLowerCase().includes(q.toLowerCase()));
-  return(
-    <div style={{flex:1,background:D,display:"flex",flexDirection:"column"}}>
-      <div style={{padding:"12px 18px 14px",flexShrink:0}}>
-        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:26,color:W,marginBottom:14}}>Messages</div>
-        <div style={{background:D3,borderRadius:13,padding:"10px 14px",display:"flex",alignItems:"center",gap:9,border:`1px solid ${D5}`}}>
-          <span style={{color:G,fontSize:16}}>🔍</span>
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search conversations…" style={{background:"none",border:"none",color:W,fontSize:14,outline:"none",flex:1}}/>
-          {q&&<button onClick={()=>setQ("")} style={{background:"none",border:"none",color:G,fontSize:18,cursor:"pointer"}}>×</button>}
-        </div>
-      </div>
-      <div style={{flex:1,overflowY:"auto",padding:"0 16px"}}>
-        {filtered.map(c=>(
-          <div key={c.id} onClick={()=>push(S.CHAT,c)} style={{display:"flex",alignItems:"center",gap:13,padding:"13px 0",borderBottom:`1px solid ${D4}`,cursor:"pointer"}}>
-            <Avatar av={c.av} tier={c.tier} size={52} online={c.online}/>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
-                <span style={{fontWeight:700,fontSize:14,color:W}}>{c.name}</span>
-                <span style={{fontSize:11,color:G}}>{c.time}</span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span style={{fontSize:13,color:c.unread?GL:G,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:220}}>{c.last}</span>
-                {c.unread>0&&<div style={{minWidth:18,height:18,borderRadius:9,background:O,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:W,padding:"0 4px",flexShrink:0}}>{c.unread}</div>}
-              </div>
-            </div>
-          </div>
-        ))}
-        {filtered.length===0&&(
-          <div style={{textAlign:"center",padding:"40px 0",color:G}}>
-            <div style={{fontSize:44,marginBottom:10}}>💬</div>
-            <div>No conversations found</div>
           </div>
         )}
       </div>
@@ -966,82 +1004,156 @@ function MessagesScreen({push}){
 
 // ─── CHAT ─────────────────────────────────────────────────────────────
 function ChatScreen({user,onBack,push}){
-  const u=user||CONVOS[0];
+  const u=(user&&user.name)?user:CONVOS[0];
   const [msgs,setMsgs]=useState(INIT_MSGS);
   const [msg,setMsg]=useState("");
   const [showAttach,setShowAttach]=useState(false);
   const [typing,setTyping]=useState(false);
   const bottomRef=useRef(null);
-  useEffect(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),[msgs]);
+
+  useEffect(()=>{
+    if(bottomRef.current) bottomRef.current.scrollIntoView({behavior:"smooth"});
+  },[msgs]);
 
   const send=()=>{
-    if(!msg.trim())return;
+    if(!msg.trim()) return;
     const txt=msg;
     setMsg("");
     setMsgs(m=>[...m,{id:Date.now(),from:"me",text:txt,time:nowT()}]);
     setTyping(true);
     setTimeout(()=>{
       setTyping(false);
-      setMsgs(m=>[...m,{id:Date.now()+1,from:"them",text:"That's interesting! Tell me more 😊",time:nowT()}]);
+      setMsgs(m=>[...m,{id:Date.now()+1,from:"them",text:"Got it! 😊",time:nowT()}]);
     },1400);
   };
 
+  const nearbyUser=NEARBY.find(x=>x.name===u.name)||NEARBY[0];
   const attachOptions=[["📷","Photo"],["🎥","Video"],["📎","File"],["🎵","Audio"],["📍","Location"],["💾","Document"]];
 
   return(
     <div style={{flex:1,background:D,display:"flex",flexDirection:"column"}}>
-      <div style={{padding:"8px 14px 8px",display:"flex",alignItems:"center",gap:11,borderBottom:`1px solid ${D4}`,background:D2,flexShrink:0}}>
-        <button onClick={onBack} style={{background:"none",border:"none",color:O,fontSize:24,cursor:"pointer",lineHeight:1,padding:"0 2px 0 0"}}>‹</button>
-        <div onClick={()=>push(S.USER_VIEW,NEARBY.find(x=>x.name===u.name)||NEARBY[0])} style={{cursor:"pointer"}}>
-          <Avatar av={u.av} tier={u.tier} size={38} online={u.online}/>
+      {/* Header */}
+      <div style={{padding:"8px 14px 8px",display:"flex",alignItems:"center",gap:11,borderBottom:"1px solid "+D4,background:D2,flexShrink:0}}>
+        <button onClick={onBack} style={{background:"none",border:"none",color:O,fontSize:24,cursor:"pointer",lineHeight:1,padding:"0 2px 0 0"}}>{"‹"}</button>
+        <div onClick={()=>push(S.USER_VIEW,nearbyUser)} style={{cursor:"pointer",flexShrink:0}}>
+          <Avatar av={u.av||"??"} tier={u.tier||"silver"} size={38} online={u.online}/>
         </div>
-        <div style={{flex:1,cursor:"pointer"}} onClick={()=>push(S.USER_VIEW,NEARBY.find(x=>x.name===u.name)||NEARBY[0])}>
-          <div style={{fontWeight:700,fontSize:15,color:W,lineHeight:1.2}}>{u.name}</div>
-          <div style={{fontSize:11,color:u.online?GRN:G}}>{typing?"Typing…":u.online?"Online":"Offline"}</div>
+        <div style={{flex:1,cursor:"pointer",minWidth:0}} onClick={()=>push(S.USER_VIEW,nearbyUser)}>
+          <div style={{fontWeight:700,fontSize:15,color:W,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.name||"User"}</div>
+          <div style={{fontSize:11,color:typing?O:u.online?GRN:G}}>{typing?"Typing…":u.online?"Online":"Offline"}</div>
         </div>
-        <div style={{display:"flex",gap:14}}>
-          <button onClick={()=>push(S.VOICE_CALL,u)} style={{background:"none",border:"none",color:GL,fontSize:18,cursor:"pointer",opacity:0.8}}>📞</button>
-          <button onClick={()=>push(S.VIDEO_CALL,u)} style={{background:"none",border:"none",color:GL,fontSize:18,cursor:"pointer",opacity:0.8}}>📹</button>
-          <button style={{background:"none",border:"none",color:GL,fontSize:18,cursor:"pointer",opacity:0.6}}>⋯</button>
+        <div style={{display:"flex",gap:12,flexShrink:0}}>
+          <button onClick={()=>push(S.VOICE_CALL,nearbyUser)} style={{background:"none",border:"none",color:GL,fontSize:18,cursor:"pointer",opacity:0.8}}>{"📞"}</button>
+          <button onClick={()=>push(S.VIDEO_CALL,nearbyUser)} style={{background:"none",border:"none",color:GL,fontSize:18,cursor:"pointer",opacity:0.8}}>{"📹"}</button>
+          <button style={{background:"none",border:"none",color:GL,fontSize:18,cursor:"pointer",opacity:0.6}}>{"⋯"}</button>
         </div>
       </div>
-      <div style={{textAlign:"center",padding:"5px 20px",fontSize:10,color:GD,background:D}}>🔐 Signal Protocol End-to-End Encryption · Nobody can read your messages</div>
 
+      {/* Encryption notice */}
+      <div style={{textAlign:"center",padding:"5px 20px",fontSize:10,color:GD,background:D,flexShrink:0}}>
+        {"🔐 Signal Protocol End-to-End Encryption · Nobody can read your messages"}
+      </div>
+
+      {/* Messages */}
       <div style={{flex:1,overflowY:"auto",padding:"8px 14px"}}>
         {msgs.map(m=>(
           <div key={m.id} style={{display:"flex",justifyContent:m.from==="me"?"flex-end":"flex-start",marginBottom:9}}>
-            <div style={{maxWidth:"77%",background:m.from==="me"?`linear-gradient(135deg,${O},${OD})`:D3,borderRadius:m.from==="me"?"18px 18px 4px 18px":"18px 18px 18px 4px",padding:"10px 14px"}}>
+            <div style={{maxWidth:"77%",background:m.from==="me"?"linear-gradient(135deg,"+O+","+OD+")":D3,borderRadius:m.from==="me"?"18px 18px 4px 18px":"18px 18px 18px 4px",padding:"10px 14px"}}>
               <div style={{fontSize:14,color:W,lineHeight:1.45}}>{m.text}</div>
-              <div style={{fontSize:9,color:m.from==="me"?"rgba(255,255,255,0.5)":G,textAlign:"right",marginTop:4}}>{m.time}{m.from==="me"&&" ✓✓"}</div>
+              <div style={{fontSize:9,color:m.from==="me"?"rgba(255,255,255,0.5)":G,textAlign:"right",marginTop:4}}>
+                {m.time}{m.from==="me"&&" ✓✓"}
+              </div>
             </div>
           </div>
         ))}
         {typing&&(
           <div style={{display:"flex",justifyContent:"flex-start",marginBottom:9}}>
             <div style={{background:D3,borderRadius:"18px 18px 18px 4px",padding:"12px 16px",display:"flex",gap:5,alignItems:"center"}}>
-              {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:"50%",background:G,animation:`bounce 1.2s ${i*0.2}s infinite`}}/>)}
+              {[0,1,2].map(i=>(
+                <div key={i} style={{width:7,height:7,borderRadius:"50%",background:G,animation:"bounce 1.2s "+(i*0.2)+"s infinite"}}/>
+              ))}
             </div>
           </div>
         )}
         <div ref={bottomRef}/>
       </div>
 
+      {/* Attach panel */}
       {showAttach&&(
-        <div style={{background:D2,borderTop:`1px solid ${D4}`,padding:"14px 16px",display:"flex",gap:12,justifyContent:"center",flexShrink:0}}>
+        <div style={{background:D2,borderTop:"1px solid "+D4,padding:"14px 16px",display:"flex",gap:12,justifyContent:"center",flexShrink:0}}>
           {attachOptions.map(([e,l])=>(
             <div key={l} onClick={()=>setShowAttach(false)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer"}}>
-              <div style={{width:50,height:50,borderRadius:15,background:D3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,border:`1px solid ${D5}`}}>{e}</div>
+              <div style={{width:50,height:50,borderRadius:15,background:D3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,border:"1px solid "+D5}}>{e}</div>
               <div style={{fontSize:10,color:G}}>{l}</div>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{padding:"8px 12px 8px",display:"flex",alignItems:"center",gap:8,borderTop:`1px solid ${D4}`,background:D2,flexShrink:0}}>
-        <button onClick={()=>setShowAttach(a=>!a)} style={{background:showAttach?`${O}22`:D3,border:`1px solid ${showAttach?O:D5}`,borderRadius:20,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",color:W,cursor:"pointer",fontSize:17,flexShrink:0}}>📎</button>
-        <input value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()}
-          placeholder="Type a message…" style={{flex:1,background:D3,border:`1px solid ${D5}`,borderRadius:22,padding:"10px 15px",color:W,fontSize:14,outline:"none"}}/>
-        <button onClick={send} style={{width:38,height:38,borderRadius:19,background:msg.trim()?O:D3,border:"none",cursor:"pointer",fontSize:18,color:W,transition:"background 0.2s",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>↑</button>
+      {/* Input bar */}
+      <div style={{padding:"8px 12px 8px",display:"flex",alignItems:"center",gap:8,borderTop:"1px solid "+D4,background:D2,flexShrink:0}}>
+        <button
+          onClick={()=>setShowAttach(a=>!a)}
+          style={{background:showAttach?O+"22":D3,border:"1px solid "+(showAttach?O:D5),borderRadius:20,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",color:W,cursor:"pointer",fontSize:17,flexShrink:0}}>
+          {"📎"}
+        </button>
+        <input
+          value={msg}
+          onChange={e=>setMsg(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();send();}}}
+          placeholder="Type a message…"
+          style={{flex:1,background:D3,border:"1px solid "+D5,borderRadius:22,padding:"10px 15px",color:W,fontSize:14,outline:"none"}}
+        />
+        <button
+          onClick={send}
+          style={{width:38,height:38,borderRadius:19,background:msg.trim()?O:D3,border:"none",cursor:"pointer",fontSize:18,color:W,transition:"background 0.2s",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          {"↑"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MESSAGES ─────────────────────────────────────────────────────────
+function MessagesScreen({push}){
+  const [q,setQ]=useState("");
+  const filtered=CONVOS.filter(c=>q===""||c.name.toLowerCase().includes(q.toLowerCase()));
+  return(
+    <div style={{flex:1,background:D,display:"flex",flexDirection:"column"}}>
+      <div style={{padding:"12px 18px 14px",flexShrink:0}}>
+        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:26,color:W,marginBottom:12}}>Messages</div>
+        <div style={{background:D3,borderRadius:13,padding:"10px 14px",display:"flex",alignItems:"center",gap:9,border:"1px solid "+D5}}>
+          <span style={{color:G,fontSize:16}}>{"🔍"}</span>
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search conversations…"
+            style={{background:"none",border:"none",color:W,fontSize:14,outline:"none",flex:1}}/>
+          {q&&<button onClick={()=>setQ("")} style={{background:"none",border:"none",color:G,fontSize:18,cursor:"pointer",lineHeight:1}}>{"×"}</button>}
+        </div>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"0 16px"}}>
+        {filtered.length===0&&(
+          <div style={{textAlign:"center",padding:"40px 0",color:G}}>
+            <div style={{fontSize:44,marginBottom:10}}>{"💬"}</div>
+            <div>No conversations found</div>
+          </div>
+        )}
+        {filtered.map(c=>(
+          <div key={c.id} onClick={()=>push(S.CHAT,c)}
+            style={{display:"flex",alignItems:"center",gap:13,padding:"13px 0",borderBottom:"1px solid "+D4,cursor:"pointer"}}>
+            <Avatar av={c.av} tier={c.tier} size={52} online={c.online}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                <span style={{fontWeight:700,fontSize:14,color:W}}>{c.name}</span>
+                <span style={{fontSize:11,color:G,flexShrink:0}}>{c.time}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:13,color:c.unread?GL:G,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:220}}>{c.last}</span>
+                {c.unread>0&&(
+                  <div style={{minWidth:18,height:18,borderRadius:9,background:O,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:W,padding:"0 4px",flexShrink:0}}>{c.unread}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1059,7 +1171,7 @@ function RoomsScreen({push}){
   return(
     <div style={{flex:1,background:D,display:"flex",flexDirection:"column"}}>
       <div style={{padding:"12px 18px 8px",flexShrink:0}}>
-        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:26,color:W,marginBottom:12}}>Apostle Rooms</div>
+        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:26,color:W,marginBottom:12}}>Whisper Rooms</div>
         <div style={{background:D3,borderRadius:13,padding:"9px 13px",display:"flex",alignItems:"center",gap:8,marginBottom:10,border:`1px solid ${D5}`}}>
           <span style={{color:G}}>🔍</span>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search rooms…" style={{background:"none",border:"none",color:W,fontSize:13,outline:"none",flex:1}}/>
@@ -1098,7 +1210,7 @@ function RoomsScreen({push}){
 }
 
 // ─── ROOM CHAT ───────────────────────────────────────────────────────
-function RoomChatScreen({room,onBack}){
+function RoomChatScreen({room,onBack,push}){
   const r=room||ROOMS[2];
   const [msgs,setMsgs]=useState(ROOM_MSGS_INIT);
   const [msg,setMsg]=useState("");
@@ -1107,7 +1219,7 @@ function RoomChatScreen({room,onBack}){
   const [giftAnim,setGiftAnim]=useState(null);
   const [reported,setReported]=useState(null);
   const bottomRef=useRef(null);
-  useEffect(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),[msgs]);
+  useEffect(()=>bottomRef.current&&bottomRef.current.scrollIntoView({behavior:"smooth"}),[msgs]);
 
   const send=()=>{
     if(!msg.trim())return;
@@ -1225,7 +1337,7 @@ function CreateRoomScreen({onBack}){
       <div style={{fontFamily:"'DM Serif Display',serif",fontSize:28,color:W,textAlign:"center"}}>Room Created! 🎉</div>
       <div style={{fontSize:14,color:G,textAlign:"center"}}>"{name}" is now live. 50 coins deducted from your wallet.</div>
       <div style={{background:`${O}15`,border:`1px solid ${O}44`,borderRadius:16,padding:"18px 20px",width:"100%",textAlign:"center"}}>
-        <div style={{fontSize:10,color:O,fontWeight:700,letterSpacing:"0.14em",marginBottom:8,fontFamily:"monospace"}}>INVITE CODE — SHARE WITH DIAMOND MEMBERS</div>
+        <div style={{fontSize:10,color:O,fontWeight:700,letterSpacing:"0.14em",marginBottom:8,fontFamily:"monospace"}}>INVITE CODE — SHARE WITH GOLD+ MEMBERS</div>
         <div style={{fontFamily:"monospace",fontSize:26,color:W,fontWeight:800,letterSpacing:"0.22em"}}>WH-{invCode}</div>
       </div>
       <BigBtn label="Go to Room →" onClick={onBack}/>
@@ -1236,9 +1348,9 @@ function CreateRoomScreen({onBack}){
     <div style={{flex:1,background:D,display:"flex",flexDirection:"column"}}>
       <Hdr title="Create Private Room" onBack={onBack}/>
       <div style={{flex:1,overflowY:"auto",padding:"18px 20px"}}>
-        <div style={{background:`${DIA}12`,border:`1px solid ${DIA}33`,borderRadius:13,padding:"13px 15px",marginBottom:20}}>
-          <div style={{fontSize:12,color:DIA,fontWeight:700,marginBottom:3}}>💎 Platinum Diamond Feature</div>
-          <div style={{fontSize:11,color:GD,lineHeight:1.5}}>Creating a private room costs 50 coins. Only Platinum Diamond members can join private rooms. Your room stays active as long as you're subscribed.</div>
+        <div style={{background:`${O}12`,border:`1px solid ${O}33`,borderRadius:13,padding:"13px 15px",marginBottom:20}}>
+          <div style={{fontSize:12,color:O,fontWeight:700,marginBottom:3}}>🥇 Gold & 💎 Diamond Feature</div>
+          <div style={{fontSize:11,color:GD,lineHeight:1.5}}>Gold and Diamond members can create private rooms for 50 coins. Only Gold+ members can join. Your room stays active as long as you're subscribed.</div>
         </div>
 
         <div style={{fontSize:11,fontWeight:700,color:G,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:9}}>Room Icon</div>
@@ -1304,7 +1416,7 @@ function WalletScreen({push}){
       </div>
 
       <div style={{display:"flex",gap:9,padding:"0 14px 14px",flexShrink:0}}>
-        {[{icon:"💳",label:"Buy Coins",s:S.BUY_COINS},{icon:"📤",label:"Send Coins",s:S.SEND_COINS},{icon:"🎁",label:"Gift History",s:S.GIFT_HISTORY},{icon:"📋",label:"Coin History",s:S.COIN_HISTORY}].map(a=>(
+        {[{icon:"💳",label:"Buy Coins",s:S.BUY_COINS},{icon:"🏦",label:"Withdraw",s:S.WITHDRAW},{icon:"📤",label:"Send Coins",s:S.SEND_COINS},{icon:"🎁",label:"Gifts",s:S.GIFT_HISTORY}].map(a=>(
           <button key={a.label} onClick={()=>push(a.s)} style={{flex:1,background:D3,border:`1px solid ${D5}`,borderRadius:13,padding:"11px 0",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"border-color 0.2s"}}>
             <span style={{fontSize:19}}>{a.icon}</span>
             <span style={{fontSize:9,color:GL,fontWeight:600,textAlign:"center",lineHeight:1.2}}>{a.label}</span>
@@ -1349,17 +1461,29 @@ function WalletScreen({push}){
 
 // ─── BUY COINS ────────────────────────────────────────────────────────
 function BuyCoinsScreen({onBack}){
-  const [sel,setSel]=useState(2);
+  const [custom,setCustom]=useState("");
   const [method,setMethod]=useState("card");
   const [loading,setLoading]=useState(false);
   const [done,setDone]=useState(false);
+
+  const amount=parseInt(custom)||0;
+  const usd=(amount/10).toFixed(2);
+  const isValid=amount>=10;
+  const PACKS=[100,550,1200,2750,7500,16000];
+  const PACK_PRICES=["$1.00","$5.00","$10.00","$20.00","$50.00","$100.00"];
+  const PACK_BONUS=["","","+200 free","+750 free","+2,500 free","+6,000 free"];
+
+  const handleCustom=v=>{
+    const n=v.replace(/[^0-9]/g,"");
+    setCustom(n);
+  };
 
   if(done)return(
     <div style={{flex:1,background:D,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 28px",gap:16}}>
       <div style={{fontSize:80}}>🎉</div>
       <div style={{fontFamily:"'DM Serif Display',serif",fontSize:28,color:W,textAlign:"center"}}>Coins Added!</div>
-      <div style={{fontSize:18,color:GRN,fontWeight:700}}>+{COIN_PACKS[sel].coins.toLocaleString()} coins</div>
-      <div style={{fontSize:13,color:G,textAlign:"center"}}>New balance: {(4250+COIN_PACKS[sel].coins).toLocaleString()} coins</div>
+      <div style={{fontSize:18,color:GRN,fontWeight:700}}>+{amount.toLocaleString()} coins</div>
+      <div style={{fontSize:13,color:G,textAlign:"center"}}>New balance: {(4250+amount).toLocaleString()} coins</div>
       <BigBtn label="Done" onClick={onBack}/>
     </div>
   );
@@ -1367,20 +1491,49 @@ function BuyCoinsScreen({onBack}){
   return(
     <div style={{flex:1,background:D,display:"flex",flexDirection:"column"}}>
       <Hdr title="Buy Coins" onBack={onBack}/>
-      <div style={{flex:1,overflowY:"auto",padding:"14px 16px"}}>
-        <div style={{fontSize:12,color:G,marginBottom:16}}>10 coins = $1.00 USD · Minimum purchase: 10 coins</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:22}}>
-          {COIN_PACKS.map((p,i)=>(
-            <div key={i} onClick={()=>setSel(i)} style={{background:sel===i?`${O}22`:D3,border:`2px solid ${sel===i?O:D5}`,borderRadius:16,padding:"15px 13px",cursor:"pointer",position:"relative",transition:"all 0.2s"}}>
-              {p.popular&&<div style={{position:"absolute",top:-9,left:"50%",transform:"translateX(-50%)",background:O,color:W,fontSize:8,fontWeight:700,padding:"2px 10px",borderRadius:10,fontFamily:"monospace",whiteSpace:"nowrap"}}>🔥 POPULAR</div>}
-              <div style={{fontFamily:"'DM Serif Display',serif",fontSize:24,fontWeight:700,color:sel===i?O:W,marginBottom:2}}>{p.coins>=1000?(p.coins/1000)+"K":p.coins}</div>
-              <div style={{fontSize:10,color:G,marginBottom:p.bonus?4:8}}>coins</div>
-              {p.bonus&&<div style={{fontSize:10,color:GRN,fontWeight:700,marginBottom:6}}>{p.bonus}</div>}
-              <div style={{fontSize:15,fontWeight:700,color:sel===i?O:W}}>{p.price}</div>
+      <div style={{flex:1,overflowY:"auto",padding:"16px 16px"}}>
+
+        {/* Custom amount input */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:11,fontWeight:700,color:G,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:9}}>Enter Coin Amount</div>
+          <div style={{background:D3,border:`2px solid ${isValid?O:custom&&!isValid?RED:D5}`,borderRadius:16,padding:"16px",display:"flex",alignItems:"center",gap:10,transition:"border-color 0.2s"}}>
+            <span style={{fontSize:24}}>🪙</span>
+            <input
+              type="number"
+              value={custom}
+              onChange={e=>handleCustom(e.target.value)}
+              placeholder="Enter amount (min. 10)"
+              style={{background:"none",border:"none",color:W,fontSize:28,fontWeight:700,outline:"none",flex:1,width:"100%",fontFamily:"'DM Serif Display',serif"}}
+            />
+          </div>
+          {/* Live USD conversion */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10,padding:"10px 14px",background:D3,borderRadius:11,border:`1px solid ${D5}`}}>
+            <span style={{fontSize:13,color:G}}>💵 USD equivalent</span>
+            <span style={{fontSize:18,fontWeight:800,color:isValid?GRN:G}}>${usd}</span>
+          </div>
+          {custom&&!isValid&&(
+            <div style={{fontSize:12,color:RED,marginTop:6,paddingLeft:4}}>⚠️ Minimum purchase is 10 coins ($0.10)</div>
+          )}
+          {isValid&&(
+            <div style={{fontSize:12,color:GRN,marginTop:6,paddingLeft:4}}>✓ {amount.toLocaleString()} coins for ${usd}</div>
+          )}
+        </div>
+
+        {/* Quick select packs */}
+        <div style={{fontSize:11,fontWeight:700,color:G,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:9}}>Or choose a pack</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:22}}>
+          {PACKS.map((p,i)=>(
+            <div key={i} onClick={()=>setCustom(String(p))} style={{background:amount===p?`${O}22`:D3,border:`2px solid ${amount===p?O:D5}`,borderRadius:13,padding:"12px 8px",cursor:"pointer",textAlign:"center",position:"relative",transition:"all 0.2s"}}>
+              {i===2&&<div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",background:O,color:W,fontSize:7,fontWeight:700,padding:"2px 8px",borderRadius:8,fontFamily:"monospace",whiteSpace:"nowrap"}}>🔥 POPULAR</div>}
+              <div style={{fontWeight:800,fontSize:16,color:amount===p?O:W,marginBottom:1}}>{p>=1000?(p/1000)+"K":p}</div>
+              <div style={{fontSize:9,color:G,marginBottom:PACK_BONUS[i]?3:0}}>coins</div>
+              {PACK_BONUS[i]&&<div style={{fontSize:9,color:GRN,fontWeight:700}}>{PACK_BONUS[i]}</div>}
+              <div style={{fontSize:12,fontWeight:700,color:amount===p?O:GL,marginTop:4}}>{PACK_PRICES[i]}</div>
             </div>
           ))}
         </div>
 
+        {/* Payment method */}
         <div style={{fontSize:11,fontWeight:700,color:G,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:9}}>Payment Method</div>
         <div style={{display:"flex",gap:8,marginBottom:18}}>
           {[{id:"card",label:"💳 Card"},{id:"bank",label:"🏦 Bank"},{id:"mobile",label:"📱 Mobile"}].map(m=>(
@@ -1402,26 +1555,167 @@ function BuyCoinsScreen({onBack}){
         </>}
         {method==="mobile"&&<>
           <Inp label="Phone Number" placeholder="+1 (555) 000-0000"/>
-          <div style={{background:`${O}12`,borderRadius:11,padding:"11px 14px",marginBottom:14,fontSize:12,color:GL}}>You'll receive an OTP to confirm the payment on your mobile number.</div>
+          <div style={{background:`${O}12`,borderRadius:11,padding:"11px 14px",marginBottom:14,fontSize:12,color:GL}}>You will receive an OTP to confirm the payment.</div>
         </>}
 
-        <div style={{background:D3,borderRadius:13,padding:"14px 16px",marginBottom:18}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-            <span style={{fontSize:13,color:G}}>Coins</span>
-            <span style={{fontSize:13,color:W,fontWeight:600}}>{COIN_PACKS[sel].coins.toLocaleString()}</span>
+        {/* Order summary */}
+        {isValid&&(
+          <div style={{background:D3,borderRadius:13,padding:"14px 16px",marginBottom:18}}>
+            <div style={{fontSize:11,fontWeight:700,color:G,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10}}>Order Summary</div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:13,color:G}}>Coins</span>
+              <span style={{fontSize:13,color:W,fontWeight:600}}>{amount.toLocaleString()}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:13,color:G}}>Rate</span>
+              <span style={{fontSize:13,color:W,fontWeight:600}}>10 coins = $1.00</span>
+            </div>
+            <div style={{height:1,background:D5,margin:"8px 0"}}/>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:15,color:W,fontWeight:700}}>Total</span>
+              <span style={{fontSize:15,color:O,fontWeight:800}}>${usd}</span>
+            </div>
           </div>
-          {COIN_PACKS[sel].bonus&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-            <span style={{fontSize:13,color:G}}>Bonus</span>
-            <span style={{fontSize:13,color:GRN,fontWeight:600}}>{COIN_PACKS[sel].bonus}</span>
-          </div>}
-          <div style={{height:1,background:D5,margin:"8px 0"}}/>
-          <div style={{display:"flex",justifyContent:"space-between"}}>
-            <span style={{fontSize:14,color:W,fontWeight:700}}>Total</span>
-            <span style={{fontSize:14,color:O,fontWeight:800}}>{COIN_PACKS[sel].price}</span>
+        )}
+
+        <BigBtn
+          label={loading?"Processing…":isValid?`Pay $${usd} for ${amount.toLocaleString()} coins`:"Enter amount to continue"}
+          onClick={()=>{if(!isValid)return;setLoading(true);setTimeout(()=>{setLoading(false);setDone(true);},1500);}}
+          disabled={!isValid||loading}
+        />
+        <div style={{textAlign:"center",marginTop:12,fontSize:11,color:G}}>Secured by Stripe · All transactions encrypted</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── WITHDRAW COINS ───────────────────────────────────────────────────
+function WithdrawScreen({onBack}){
+  const walletBalance=4250;
+  const [amount,setAmount]=useState("");
+  const [bank,setBank]=useState("first");
+  const [loading,setLoading]=useState(false);
+  const [done,setDone]=useState(false);
+
+  const coins=parseInt(amount)||0;
+  const isValid=coins>=10&&coins<=walletBalance;
+  const fee=Math.round(coins*0.30);
+  const netCoins=coins-fee;
+  const netUSD=(netCoins/10).toFixed(2);
+  const feeUSD=(fee/10).toFixed(2);
+  const totalUSD=(coins/10).toFixed(2);
+
+  const handleInput=v=>setAmount(v.replace(/[^0-9]/g,""));
+
+  const banks=[
+    {id:"first",name:"First Bank",num:"••••• 4821"},
+    {id:"gtb",name:"GTBank",num:"••••• 2290"},
+    {id:"access",name:"Access Bank",num:"••••• 7743"},
+  ];
+
+  if(done)return(
+    <div style={{flex:1,background:D,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 28px",gap:16}}>
+      <div style={{fontSize:80}}>🏦</div>
+      <div style={{fontFamily:"'DM Serif Display',serif",fontSize:26,color:W,textAlign:"center"}}>Withdrawal Submitted!</div>
+      <div style={{fontSize:16,color:GRN,fontWeight:700}}>${netUSD} → {banks.find(b=>b.id===bank)?.name}</div>
+      <div style={{fontSize:13,color:G,textAlign:"center",lineHeight:1.6}}>{coins.toLocaleString()} coins withdrawn · 30% fee: {fee} coins · Arrives in 1–3 business days</div>
+      <div style={{background:`${O}15`,border:`1px solid ${O}44`,borderRadius:14,padding:"14px 18px",width:"100%",textAlign:"center"}}>
+        <div style={{fontSize:10,color:O,fontWeight:700,letterSpacing:"0.12em",marginBottom:6,fontFamily:"monospace"}}>TRANSACTION ID</div>
+        <div style={{fontFamily:"monospace",fontSize:16,color:W,fontWeight:700,letterSpacing:"0.08em"}}>WD-{Math.random().toString(36).slice(2,10).toUpperCase()}</div>
+      </div>
+      <BigBtn label="Done" onClick={onBack}/>
+    </div>
+  );
+
+  return(
+    <div style={{flex:1,background:D,display:"flex",flexDirection:"column"}}>
+      <Hdr title="Withdraw Coins" onBack={onBack}/>
+      <div style={{flex:1,overflowY:"auto",padding:"16px 18px"}}>
+
+        {/* Balance card */}
+        <div style={{background:`linear-gradient(135deg,${O},${OD})`,borderRadius:16,padding:"16px 18px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Available Balance</div>
+            <div style={{fontFamily:"'DM Serif Display',serif",fontSize:28,fontWeight:700,color:W}}>{walletBalance.toLocaleString()} <span style={{fontSize:14,opacity:0.7}}>coins</span></div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>USD Value</div>
+            <div style={{fontSize:18,fontWeight:700,color:W}}>${(walletBalance/10).toFixed(2)}</div>
           </div>
         </div>
 
-        <BigBtn label={loading?`Processing…`:`Pay ${COIN_PACKS[sel].price}`} onClick={()=>{setLoading(true);setTimeout(()=>{setLoading(false);setDone(true);},1500);}} disabled={loading}/>
+        {/* Amount input */}
+        <div style={{fontSize:11,fontWeight:700,color:G,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:9}}>Amount to Withdraw (coins)</div>
+        <div style={{background:D3,border:`2px solid ${isValid?O:amount&&!isValid?RED:D5}`,borderRadius:16,padding:"16px",display:"flex",alignItems:"center",gap:10,marginBottom:10,transition:"border-color 0.2s"}}>
+          <span style={{fontSize:22}}>🪙</span>
+          <input
+            type="number"
+            value={amount}
+            onChange={e=>handleInput(e.target.value)}
+            placeholder="Enter coins (min. 10)"
+            style={{background:"none",border:"none",color:W,fontSize:28,fontWeight:700,outline:"none",flex:1,width:"100%",fontFamily:"'DM Serif Display',serif"}}
+          />
+        </div>
+
+        {/* Quick amounts */}
+        <div style={{display:"flex",gap:8,marginBottom:16}}>
+          {[100,500,1000,walletBalance].map(v=>(
+            <button key={v} onClick={()=>setAmount(String(v))} style={{flex:1,background:coins===v?`${O}22`:D3,border:`1px solid ${coins===v?O:D5}`,borderRadius:9,padding:"8px 0",color:coins===v?O:GL,fontSize:11,fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>
+              {v===walletBalance?"MAX":v>=1000?(v/1000)+"K":v}
+            </button>
+          ))}
+        </div>
+
+        {/* Live USD display */}
+        {amount&&(
+          <div style={{background:D3,borderRadius:12,padding:"12px 14px",marginBottom:18,border:`1px solid ${isValid?O+"33":RED+"33"}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:13,color:G}}>Withdraw</span>
+              <span style={{fontSize:13,color:W,fontWeight:600}}>{coins.toLocaleString()} coins (${totalUSD})</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:13,color:G}}>Service fee (30%)</span>
+              <span style={{fontSize:13,color:RED,fontWeight:600}}>-{fee.toLocaleString()} coins (-${feeUSD})</span>
+            </div>
+            <div style={{height:1,background:D5,margin:"8px 0"}}/>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:14,color:W,fontWeight:700}}>You receive</span>
+              <span style={{fontSize:14,color:GRN,fontWeight:800}}>${netUSD}</span>
+            </div>
+            {!isValid&&coins>0&&coins<10&&<div style={{fontSize:11,color:RED,marginTop:8}}>⚠️ Minimum withdrawal is 10 coins</div>}
+            {!isValid&&coins>walletBalance&&<div style={{fontSize:11,color:RED,marginTop:8}}>⚠️ Insufficient balance</div>}
+          </div>
+        )}
+
+        {/* Bank selector */}
+        <div style={{fontSize:11,fontWeight:700,color:G,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:9}}>Destination Bank Account</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
+          {banks.map(b=>(
+            <button key={b.id} onClick={()=>setBank(b.id)} style={{background:bank===b.id?`${O}18`:D3,border:`1px solid ${bank===b.id?O:D5}`,borderRadius:12,padding:"13px 15px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"all 0.2s"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:20}}>🏦</span>
+                <div style={{textAlign:"left"}}>
+                  <div style={{fontSize:13,fontWeight:700,color:W}}>{b.name}</div>
+                  <div style={{fontSize:11,color:G}}>{b.num}</div>
+                </div>
+              </div>
+              <div style={{width:20,height:20,borderRadius:10,border:`2px solid ${bank===b.id?O:D5}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {bank===b.id&&<div style={{width:11,height:11,borderRadius:6,background:O}}/>}
+              </div>
+            </button>
+          ))}
+          <button style={{background:D3,border:`1px dashed ${D5}`,borderRadius:12,padding:"13px 15px",color:G,fontSize:13,cursor:"pointer",fontWeight:600}}>+ Add Bank Account</button>
+        </div>
+
+        <div style={{background:`${YEL}12`,border:`1px solid ${YEL}33`,borderRadius:11,padding:"11px 14px",marginBottom:18}}>
+          <div style={{fontSize:12,color:YEL,lineHeight:1.5}}>⚠️ A 30% service fee applies to all withdrawals — the same rate as your Gold tier coin transfers. Funds arrive in 1–3 business days.</div>
+        </div>
+
+        <BigBtn
+          label={loading?"Processing…":isValid?`Withdraw ${coins.toLocaleString()} coins → $${netUSD}`:"Enter valid amount"}
+          onClick={()=>{if(!isValid)return;setLoading(true);setTimeout(()=>{setLoading(false);setDone(true);},1600);}}
+          disabled={!isValid||loading}
+        />
       </div>
     </div>
   );
@@ -1429,7 +1723,7 @@ function BuyCoinsScreen({onBack}){
 
 // ─── SEND COINS ───────────────────────────────────────────────────────
 function SendCoinsScreen({user,onBack}){
-  const u=user||NEARBY[0];
+  const u=(user&&user.name)?user:NEARBY[0];
   const [amount,setAmount]=useState("");
   const [note,setNote]=useState("");
   const [done,setDone]=useState(false);
@@ -1571,7 +1865,7 @@ function UpgradeScreen({onBack}){
   );
 
   const tiers=[
-    {id:"gold",name:"Premium Gold",emoji:"🥇",price:"200 coins",col:GOLD,perks:["All Silver features","Wallet: up to 100K coins","Send 1–10,000 coins per tx","30% service fee","All 9 default Apostle rooms","Verified Blue Badge eligible"]},
+    {id:"gold",name:"Premium Gold",emoji:"🥇",price:"200 coins",col:GOLD,perks:["All Silver features","Wallet: up to 100K coins","Send 1–10,000 coins per tx","30% service fee","All 9 default Whisper rooms","Verified Blue Badge eligible"]},
     {id:"diamond",name:"Platinum Diamond",emoji:"💎",price:"1,000 coins",col:DIA,perks:["All Gold features","Unlimited coin wallet","Send up to 1M coins per tx","Lowest 20% service fee","All 10 rooms incl. Diamond Zone","Create private rooms (50 coins)","Exclusive Diamond-only rooms","Priority moderation support"]},
   ];
 
@@ -1615,7 +1909,7 @@ function UpgradeScreen({onBack}){
 
 // ─── REPORT ───────────────────────────────────────────────────────────
 function ReportScreen({user,onBack}){
-  const u=user||NEARBY[0];
+  const u=(user&&user.name)?user:NEARBY[0];
   const [reason,setReason]=useState("");
   const [detail,setDetail]=useState("");
   const [done,setDone]=useState(false);
@@ -1769,7 +2063,7 @@ function SettingsScreen({onBack,push}){
       {l:"Message Notifications",toggle:true,val:msgNotif,set:setMsgNotif},
       {l:"Room Notifications"},{l:"Proximity Sounds"},
     ]},
-    {s:"Subscription",items:[{l:"Current Plan: Gold 🥇",nav:S.UPGRADE},{l:"Upgrade to Diamond 💎",nav:S.UPGRADE},{l:"Verified Blue Badge ✅",nav:S.BADGE_APPLY},{l:"Buy Coins 🪙",nav:S.BUY_COINS},{l:"Billing History"}]},
+    {s:"Subscription",items:[{l:"Current Plan: Gold 🥇",nav:S.UPGRADE},{l:"Upgrade to Diamond 💎",nav:S.UPGRADE},{l:"Verified Blue Badge ✅",nav:S.BADGE_APPLY},{l:"Buy Coins 🪙",nav:S.BUY_COINS},{l:"Withdraw 🏦",nav:S.WITHDRAW},{l:"Billing History"}]},
     {s:"Media & Storage",items:[{l:"File Download Quality"},{l:"Auto-Download Settings"},{l:"Clear Cache"}]},
     {s:"Admin",items:[{l:"🔐 Admin Dashboard",nav:S.ADMIN}]},
     {s:"Support",items:[{l:"Help Center",nav:S.HELP_CENTER},{l:"Gift History",nav:S.GIFT_HISTORY},{l:"Coin History",nav:S.COIN_HISTORY},{l:"Private Rooms",nav:S.PRIVATE_ROOMS},{l:"Connections",nav:S.CONNECTIONS},{l:"Report a Bug"},{l:"Contact Support"},{l:"About Whisper"}]},
@@ -1866,7 +2160,7 @@ function AdminScreen({onBack,push}){
   );
 }
 
-function AdminUsersScreen({onBack}){
+function AdminUsersScreen({onBack,push}){
   const [q,setQ]=useState("");
   const [filter,setFilter]=useState("all");
   const filtered=ADMIN_USERS.filter(u=>{
@@ -2086,7 +2380,7 @@ function AdminAnalyticsScreen({onBack}){
 
 
 function VoiceCallScreen({user,onBack}){
-  const u=user||NEARBY[0];
+  const u=(user&&user.name)?user:NEARBY[0];
   const [state,setState]=useState("ringing"); // ringing|active|ended
   const [muted,setMuted]=useState(false);
   const [speaker,setSpeaker]=useState(false);
@@ -2156,7 +2450,7 @@ function VoiceCallScreen({user,onBack}){
 
 // ─── VIDEO CALL ───────────────────────────────────────────────────────
 function VideoCallScreen({user,onBack}){
-  const u=user||NEARBY[0];
+  const u=(user&&user.name)?user:NEARBY[0];
   const [state,setState]=useState("connecting");
   const [muted,setMuted]=useState(false);
   const [camOff,setCamOff]=useState(false);
@@ -2234,11 +2528,11 @@ function NearbyMapScreen({onBack,push}){
   return(
     <div style={{flex:1,background:D,display:"flex",flexDirection:"column"}}>
       <Hdr title="Nearby Map" onBack={onBack}
-        right={<button onClick={()=>push(S.HOME)} style={{background:D3,border:`1px solid ${D5}`,borderRadius:8,padding:"6px 10px",color:GL,fontSize:12,cursor:"pointer"}}>Radar</button>}/>
+        right={<button onClick={onBack} style={{background:D3,border:`1px solid ${D5}`,borderRadius:8,padding:"6px 10px",color:GL,fontSize:12,cursor:"pointer"}}>← Back</button>}/>
       {/* Filter row */}
       <div style={{display:"flex",gap:6,padding:"8px 14px",overflowX:"auto",flexShrink:0}}>
         {[{id:"all",l:"All"},{id:"visible",l:"🟢 Visible"},{id:"diamond",l:"💎"},{id:"gold",l:"🥇"},{id:"silver",l:"🥈"}].map(f=>(
-          <Pill key={f.id} label={f.l} active={filter===f.id} onClick={()=>setSel(null)||setFilter(f.id)}/>
+          <Pill key={f.id} label={f.l} active={filter===f.id} onClick={()=>{setSel(null);setFilter(f.id);}}/>
         ))}
       </div>
       {/* Map area */}
@@ -2260,9 +2554,9 @@ function NearbyMapScreen({onBack,push}){
         </div>
         {/* Users */}
         {filtered.map(u=>(
-          <div key={u.id} onClick={()=>setSel(sel?.id===u.id?null:u)}
+          <div key={u.id} onClick={()=>setSel(sel&&sel.id===u.id?null:u)}
             style={{position:"absolute",left:`${u.mx}%`,top:`${u.my}%`,transform:"translate(-50%,-50%)",cursor:"pointer",zIndex:10}}>
-            <div style={{width:36,height:36,borderRadius:18,background:`${tc(u.tier)}22`,border:`2.5px solid ${sel?.id===u.id?W:tc(u.tier)}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:W,boxShadow:sel?.id===u.id?`0 0 16px ${tc(u.tier)}`:`0 0 8px ${tc(u.tier)}66`,transition:"all 0.2s"}}>
+            <div style={{width:36,height:36,borderRadius:18,background:`${tc(u.tier)}22`,border:`2.5px solid ${sel&&sel.id===u.id?W:tc(u.tier)}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:W,boxShadow:sel&&sel.id===u.id?`0 0 16px ${tc(u.tier)}`:`0 0 8px ${tc(u.tier)}66`,transition:"all 0.2s"}}>
               {u.av[0]}
             </div>
             {u.online&&<div style={{position:"absolute",bottom:0,right:0,width:10,height:10,borderRadius:5,background:GRN,border:`2px solid ${D}`}}/>}
@@ -2915,7 +3209,7 @@ function HelpCenterScreen({onBack}){
 }
 
 // ─── ADMIN: REPORTS ───────────────────────────────────────────────────
-function AdminReportsScreen({onBack}){
+function AdminReportsScreen({onBack,push}){
   const [reports,setReports]=useState([
     {id:1,reporter:"Amara K.",reported:"Zara M.",reason:"Spam",detail:"Repeatedly sending scam links in Business Zone",time:"12m ago",status:"pending",severity:"high"},
     {id:2,reporter:"Tariq O.",reported:"Emeka J.",reason:"Harassment",detail:"Sending threatening messages via DM",time:"1h ago",status:"pending",severity:"high"},
@@ -2973,7 +3267,7 @@ function AdminReportsScreen({onBack}){
 // ═══════════════════════════════════════════════════════════════════
 // MAIN APP SHELL
 // ═══════════════════════════════════════════════════════════════════
-const MAIN_SCREENS=[S.HOME,S.DISCOVER,S.MESSAGES,S.ROOMS,S.WALLET,S.PROFILE];
+const MAIN_SCREENS=[S.HOME,S.DISCOVER,S.MESSAGES,S.ROOMS,S.PROFILE];
 const ADMIN_SCREENS=[S.ADMIN,S.ADMIN_USERS,S.ADMIN_ROOMS,S.ADMIN_COINS,S.ADMIN_BADGES,S.ADMIN_ANALYTICS,S.ADMIN_REPORTS];
 const NAV_MAP={home:S.HOME,discover:S.DISCOVER,messages:S.MESSAGES,rooms:S.ROOMS,profile:S.PROFILE};
 
@@ -3002,6 +3296,7 @@ const ALL_NAV=[
   {label:"🎁 Gift History",s:S.GIFT_HISTORY,nav:"wallet"},
   {label:"📋 Coin History",s:S.COIN_HISTORY,nav:"wallet"},
   {label:"💳 Buy Coins",s:S.BUY_COINS,nav:"wallet"},
+  {label:"🏦 Withdraw",s:S.WITHDRAW,nav:"wallet"},
   {label:"📤 Send Coins",s:S.SEND_COINS,nav:"wallet",data:()=>NEARBY[0]},
   {label:"✅ Badge Apply",s:S.BADGE_APPLY,nav:"wallet"},
   {label:"💎 Upgrade",s:S.UPGRADE,nav:"wallet"},
@@ -3096,17 +3391,18 @@ export default function WhisperApp(){
           {screen===S.REGISTER        &&<RegisterScreen onBack={pop} onDone={()=>push(S.PROFILE_SETUP)}/>}
           {screen===S.PROFILE_SETUP   &&<ProfileSetupScreen onDone={()=>{setScreen(S.HOME);setNavActive("home");}}/>}
           {screen===S.HOME            &&<HomeScreen push={push} onNav={navTo}/>}
-          {screen===S.STATUS          &&<StatusScreen onBack={pop} initData={data?.id?data:null}/>}
+          {screen===S.STATUS          &&<StatusScreen onBack={pop} push={push} initData={data&&data.id?data:null}/>}
           {screen===S.NOTIFS          &&<NotifsScreen onBack={pop}/>}
           {screen===S.SEARCH          &&<SearchScreen onBack={pop} push={push}/>}
           {screen===S.USER_VIEW       &&<UserViewScreen user={data} onBack={pop} push={push}/>}
           {screen===S.MESSAGES        &&<MessagesScreen push={push}/>}
           {screen===S.CHAT            &&<ChatScreen user={data} onBack={pop} push={push}/>}
           {screen===S.ROOMS           &&<RoomsScreen push={push}/>}
-          {screen===S.ROOM_CHAT       &&<RoomChatScreen room={data} onBack={pop}/>}
+          {screen===S.ROOM_CHAT       &&<RoomChatScreen room={data} onBack={pop} push={push}/>}
           {screen===S.CREATE_ROOM     &&<CreateRoomScreen onBack={pop}/>}
           {screen===S.WALLET          &&<WalletScreen push={push}/>}
           {screen===S.BUY_COINS       &&<BuyCoinsScreen onBack={pop}/>}
+          {screen===S.WITHDRAW        &&<WithdrawScreen onBack={pop}/>}
           {screen===S.SEND_COINS      &&<SendCoinsScreen user={data} onBack={pop}/>}
           {screen===S.BADGE_APPLY     &&<BadgeApplyScreen onBack={pop}/>}
           {screen===S.UPGRADE         &&<UpgradeScreen onBack={pop}/>}
@@ -3114,12 +3410,12 @@ export default function WhisperApp(){
           {screen===S.PROFILE         &&<ProfileScreen push={push}/>}
           {screen===S.SETTINGS        &&<SettingsScreen onBack={pop} push={push}/>}
           {screen===S.ADMIN           &&<AdminScreen onBack={pop} push={push}/>}
-          {screen===S.ADMIN_USERS     &&<AdminUsersScreen onBack={pop}/>}
+          {screen===S.ADMIN_USERS     &&<AdminUsersScreen onBack={pop} push={push}/>}
           {screen===S.ADMIN_ROOMS     &&<AdminRoomsScreen onBack={pop}/>}
           {screen===S.ADMIN_COINS     &&<AdminCoinsScreen onBack={pop}/>}
           {screen===S.ADMIN_BADGES    &&<AdminBadgesScreen onBack={pop}/>}
           {screen===S.ADMIN_ANALYTICS &&<AdminAnalyticsScreen onBack={pop}/>}
-          {screen===S.ADMIN_REPORTS    &&<AdminReportsScreen onBack={pop}/>}
+          {screen===S.ADMIN_REPORTS    &&<AdminReportsScreen onBack={pop} push={push}/>}
           {screen===S.VOICE_CALL       &&<VoiceCallScreen user={data} onBack={pop}/>}
           {screen===S.VIDEO_CALL       &&<VideoCallScreen user={data} onBack={pop}/>}
           {screen===S.NEARBY_MAP       &&<NearbyMapScreen onBack={pop} push={push}/>}
